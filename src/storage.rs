@@ -112,7 +112,7 @@ impl TokenStorage for MemoryStorage {
                 tokens.push(JSONToken {
                     hash: scope_hash,
                     scopes: Some(scopes.into_iter().map(|x| x.as_ref().to_string()).collect()),
-                    token: t.clone(),
+                    token: t,
                 });
                 ()
             }
@@ -223,7 +223,7 @@ impl TokenStorage for DiskTokenStorage {
                     tokens.push(JSONToken {
                         hash: scope_hash,
                         scopes: Some(scopes.into_iter().map(|x| x.as_ref().to_string()).collect()),
-                        token: t.clone(),
+                        token: t,
                     });
                     ()
                 }
