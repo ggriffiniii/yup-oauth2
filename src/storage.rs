@@ -109,7 +109,7 @@ impl JSONTokens {
         T: AsRef<str>,
     {
         if let Some(idx) = self.tokens.iter().position(|x| x.hash == h) {
-            self.tokens.remove(idx);
+            self.tokens.swap_remove(idx);
         }
 
         match token {
