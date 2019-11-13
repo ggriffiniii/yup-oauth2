@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::types::Token;
-use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ScopeHash(u64);
@@ -109,9 +108,7 @@ impl JSONTokens {
     where
         T: AsRef<str>,
     {
-        eprintln!("setting: {:?}, {:?}", h, token);
-        let matched = self.tokens.iter().find_position(|x| x.hash == h);
-        if let Some((idx, _)) = matched {
+        if let Some(idx) = self.tokens.iter().position(|x| x.hash == h) {
             self.tokens.remove(idx);
         }
 
