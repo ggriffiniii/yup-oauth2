@@ -9,6 +9,10 @@ use crate::types::{ApplicationSecret, ConsoleApplicationSecret};
 
 use std::io;
 use std::path::Path;
+use std::future::Future;
+
+use futures::future::FutureExt;
+use tokio::sync::oneshot;
 
 /// Read an application secret from a file.
 pub async fn read_application_secret<P: AsRef<Path>>(path: P) -> io::Result<ApplicationSecret> {
@@ -78,5 +82,17 @@ where
 macro_rules! parse_json {
     ($($json:tt)+) => {
         ::serde_json::from_value(::serde_json::json!($($json)+)).expect("failed to deserialize")
+    }
+}
+
+pub(crate) fn spawn_with_handle<F, O>(f: F) -> impl Future<Output = O>
+where
+    F: Future<Output = O> + 'static + Send,
+    O: std::fmt::Debug + 'static + Send,
+{
+    let (tx, rx) = oneshot::channel();
+    tokio::spawn(f.map(move |x| tx.send(x).unwrap()));
+    async {
+        rx.await.unwrap()
     }
 }

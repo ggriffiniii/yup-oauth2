@@ -8,6 +8,8 @@ use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::future::Future;
+use std::pin::Pin;
 
 use serde::{Deserialize, Serialize};
 
@@ -273,6 +275,7 @@ impl JSONTokens {
 pub(crate) struct DiskStorage {
     tokens: Mutex<JSONTokens>,
     write_tx: tokio::sync::mpsc::Sender<Vec<JSONToken>>,
+    write_task_handle: Option<Pin<Box<dyn Future<Output = ()>>>>,
 }
 
 fn is_send<T: Send>() {}
@@ -293,7 +296,7 @@ impl DiskStorage {
         // received, and if writes fall too far behind we will block GetToken
         // requests until disk i/o completes.
         let (write_tx, mut write_rx) = tokio::sync::mpsc::channel::<Vec<JSONToken>>(2);
-        tokio::spawn(async move {
+        let write_task_handle = crate::helper::spawn_with_handle(async move {
             while let Some(tokens) = write_rx.recv().await {
                 match serde_json::to_string(&tokens) {
                     Err(e) => log::error!("Failed to serialize tokens: {}", e),
@@ -308,6 +311,7 @@ impl DiskStorage {
         Ok(DiskStorage {
             tokens: Mutex::new(tokens),
             write_tx,
+            write_task_handle: Some(Box::pin(write_task_handle)),
         })
     }
 
@@ -332,6 +336,12 @@ impl DiskStorage {
         T: AsRef<str>,
     {
         self.tokens.lock().unwrap().get(scopes)
+    }
+}
+
+impl Drop for DiskStorage {
+    fn drop(&mut self) {
+        futures::executor::block_on(self.write_task_handle.take().unwrap());
     }
 }
 

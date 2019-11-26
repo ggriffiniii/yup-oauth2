@@ -12,7 +12,6 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
-use futures::future::FutureExt;
 use futures_util::try_stream::TryStreamExt;
 use hyper::header;
 use tokio::sync::oneshot;
@@ -220,17 +219,6 @@ impl InstalledFlow {
     }
 }
 
-fn spawn_with_handle<F>(f: F) -> impl Future<Output = ()>
-where
-    F: Future<Output = ()> + 'static + Send,
-{
-    let (tx, rx) = oneshot::channel();
-    tokio::spawn(f.map(move |_| tx.send(()).unwrap()));
-    async {
-        let _ = rx.await;
-    }
-}
-
 struct InstalledFlowServer {
     addr: SocketAddr,
     auth_code_rx: oneshot::Receiver<String>,
@@ -258,7 +246,7 @@ impl InstalledFlowServer {
         let server = hyper::server::Server::try_bind(&addr)?;
         let server = server.http1_only(true).serve(service);
         let addr = server.local_addr();
-        let shutdown_complete = spawn_with_handle(async {
+        let shutdown_complete = crate::helper::spawn_with_handle(async {
             let _ = server
                 .with_graceful_shutdown(async move {
                     let _ = trigger_shutdown_rx.await;
